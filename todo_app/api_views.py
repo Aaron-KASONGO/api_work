@@ -1,4 +1,5 @@
-from rest_framework.generics import ListAPIView
+from rest_framework.exceptions import ValidationError
+from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import LimitOffsetPagination
@@ -25,5 +26,31 @@ class GroupeList(ListAPIView):
     def get_queryset(self): => pour filtrer tous les contenues du queryset
     """
 
+
+class GroupeCreate(CreateAPIView):
+    serializer_class = GroupeSerializer
+
+    def create(self, request, *args, **kwargs):
+        try:
+            name = request.data.get('name')
+            if len(name) == 0:
+                raise ValidationError({'name': 'Ne doit pas être vide !'})
+        except ValueError:
+            raise ValidationError({ 'name': 'Un nom valide est requis !'})
+        return super().create(request, *args, **kwargs)
+
+
+class GroupeDestroy(DestroyAPIView):
+    queryset = Groupe.objects.all()
+    lookup_field = 'id'
+
+    def delete(self, request, *args, **kwargs):
+        groupe_id = request.data.get('id')
+        response = super().delete(request, *args, **kwargs)
+        if response.status_code == 204:
+            from django.core.cache import cache
+            cache.delete('groupe_data_{}'.format(groupe_id))
+        return response
+    
 
 
