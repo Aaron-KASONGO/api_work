@@ -1,5 +1,5 @@
 from rest_framework.exceptions import ValidationError
-from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView
+from rest_framework.generics import ListAPIView, CreateAPIView, DestroyAPIView, RetrieveUpdateDestroyAPIView
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import LimitOffsetPagination
@@ -53,4 +53,26 @@ class GroupeDestroy(DestroyAPIView):
         return response
     
 
+class GroupeRetrieveUpdateDestroy(RetrieveUpdateDestroyAPIView):
+    queryset = Groupe.objects.all()
+    lookup_field = 'id'
+    serializer_class = GroupeSerializer
 
+    def delete(self, request, *args, **kwargs):
+        groupe_id = request.data.get('id')
+        response = super().delete(request, *args, **kwargs)
+        if response.status_code == 204:
+            from django.core.cache import cache
+            cache.delete('groupe_data_{}'.format(groupe_id))
+        return response
+    
+    def update(self, request, *args, **kwargs):
+        response = super().update(request, *args, **kwargs)
+        if response.status_code == 200:
+            from django.core.cache import cache
+            groupe = response.data
+            cache.set('groupe_data_{}'.format(groupe['id']), {
+                'name': groupe['name'],
+                'date': groupe['date']
+            })
+        return response
